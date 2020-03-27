@@ -1,6 +1,8 @@
 # nuxeo-googlemap-elements
 
-**WORK IN PROGRESS**
+<hr>
+**THIS WORK IN PROGRESS => DO NOT USE, IT'S NOT WORKING YET :-)**
+<hr>
 
 This plugin for [Nuxeo Platform](http://www.nuxeo.com) allows for deploying the [`google-map` Google Web Component](https://www.webcomponents.org/element/GoogleWebComponents/google-map) in Nuxeo Web UI, making it easy to display a GoogleMap with markers, etc.
 
