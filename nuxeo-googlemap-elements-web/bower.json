@@ -1,0 +1,11 @@
+{
+  "name": "nuxeo-googlemap-elements",
+  "license": "http://www.apache.org/licenses/LICENSE-2.0",
+  "dependencies": {
+    "google-map": "GoogleWebComponents/google-map#2.0.5"
+  },
+  "resolutions": {
+    "polymer": "^2.0.0"
+  },
+  "private": true
+}
