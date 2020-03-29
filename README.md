@@ -1,11 +1,6 @@
 # nuxeo-googlemap-elements
 
-<hr>
-
-**THIS WORK IN PROGRESS => DO NOT USE, IT'S NOT WORKING YET :-)**<br>
-There are severe issues with duplicated elements imported at runtime in the browser), not sure we will be able to fix those. The goal was to this plugin easy and plug&play. If it can't be done and it requires hacks or others, it's not worth doing it.
-
-<hr>
+Allows for displaying a Google Map, with 0-n markers, handling a click on markers, etc.
 
 
 # Usage
