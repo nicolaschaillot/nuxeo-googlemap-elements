@@ -7,73 +7,39 @@ There are severe issues with duplicated elements imported at runtime in the brow
 
 <hr>
 
-This plugin for [Nuxeo Platform](http://www.nuxeo.com) allows for deploying the [`google-map` Google Web Component](https://www.webcomponents.org/element/GoogleWebComponents/google-map) in Nuxeo Web UI, making it easy to display a GoogleMap with markers, etc.
-
-[![Build Status](https://qa.nuxeo.org/jenkins/buildStatus/icon?job=Sandbox/sandbox_nuxeo-googlemap-elements-master)](https://qa.nuxeo.org/jenkins/view/Sandbox/job/Sandbox/job/sandbox_nuxeo-nuxeo-googlemap-elements-master/)
-
 
 # Usage
 
-1. Install the `nuxeo-googlemap-elements` marketplace package in your Nuxeo Server:
-  * `google-map`, `google-apis` and their dependencies will be deployed in the  `ui/bower_components` folder
-2. Your elements can now use the `google-map` element (and its `google-map-marker` and other elements). This requires to explicitly import them from the `bower_components`  folder.
-
-For example, with a ui folder organized like this...
-
-```
-ui
-  bower_components
-  . . .
-  document
-    mydoc
-      . . .
-      nuxeo-mydoc-view-layout.html
-  . . .
-```
-
-... you would use the Google Map component like:
+1. In Nuxeo Studio Designer, "Resources", import the `nuxeo-google-map` folder and its elements, `nuxeo-google-map.html` and `nuxeo-google-maps-api.html`
+2. In a custom element using them:
+  * Import `nuxeo-google-map.html`, according to its path in your configuration
+  * For example, `<link rel="import" href="nuxeo-google-map/nuxeo-google-map.html">`
+3. It is required to give a height to the element, in the `<style>` part. Then, use the element and set its different values. For example, with an existing `geloc` schema:
 
 ```
-<!-- from ui/mydoc/nuxeo-mydoc-view-layout.html
-       to ui/bower_components/google-map/google-map.html -->
-<link rel="import" href="../../bower_components/google-map/google-map.html">
-<dom-module id="nuxeo-mydoc-view-layout">
+<link rel="import" href="nuxeo-google-map/nuxeo-google-map.html">
+<dom-module id="my-element">
   <template>
     <style>
-      . . .
-      google-map {
-        height: 500px;
-      }
-    </style>
-
-    <google-map
-        latitude="[[latitude]]"
-        longitude="[[longitude]]"
-        zoom="11"
-        api-key="[[apiKey]]"
-        fit-to-marker>
-      <google-map-marker latitude="[[latitude]]" longitude="[[longitude]]"
-            title="[[title1]]"></google-map-marker>
-    </google-map>
-    . . .
-```
-`apiKey`, `latitude` and `longitude` could be properties, functions, ... whatever is best in your context. For example, they could be fields:
-
-```
-<google-map
-    latitude="[[document.propertties.geoloc:latitude]]"
-    longitude="[[document.propertties.geoloc:longitude]]"
-    . . .
+	  nuxeo-google-map {
+		height: 500px; /* Settings the height is a requirement */
+	  }
+    </style
+	<nuxeo-google-map
+      id="gmap"
+      latitude="[[document.properties.geoloc:latitude]]"
+      longitude="[[document.properties.geoloc:longitude]]"
+      zoom="10"
+      api-key="your-API-key"
+      markers="[[markers]]"
+      fit-to-markers>
+   </nuxeo-google-map>
+ </template>
+. . .
 ```
 
+Please, see the explanations in nuxeo-google-map.html for details about the markers.
 
-# Build
-
-```
-git clone https://github.com/nuxeo-sandbox/nuxeo-googlemap-elements.git
-cd nuxeo-googlemap-elements
-mvn clean install
-```
 
 # Support
 

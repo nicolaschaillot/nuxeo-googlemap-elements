@@ -1,0 +1,109 @@
+<!--
+`nuxeo-google-maps-api`
+@group Nuxeo UI
+@element nuxeo-google-maps-api
+-->
+<!--
+Dynamically loads the Google Maps JavaScript API, firing the `api-load` event when ready.
+
+====================================== REQUIREMENT =====================================
+The Maps JavaScript API must be activated on your Google API Key
+========================================================================================
+
+#### Example
+
+    <nuxeo-google-maps-api
+        id="api"
+        api-key="abc123"
+        on-api-load="_mapApiLoaded">
+    </nuxeo-google-maps-api>
+    
+    => in the _mapApiLoaded callback, you can safely use the Google Map API, like
+       new google.map(. . .).
+    Notic you could also just use the nuxeo-google-map element
+        => No need for nuxeo-google-maps-api, nuxeo-google-map handles it.
+
+Also, if the element is used in several places, the call back will not be fired for
+all, since it is triggered only at first load. You can still safely rely on a test on
+this.$.api.apiLoaded
+
+Any number of components can use `<nuxeo-google-maps-api>` elements, and the library
+will only be loaded once.
+
+Notice this is Google libraries. They always load as a global variable (window.google,
+window.google.maps, etc.)
+
+===================================== IMPORTANT =====================================
+Because of elements duplication conflicts at runtime(*), we (unfortunately) cannot use
+the originals google-maps-api and google-map Polymenr elements from Google. This is
+why we have to, somehow, rewrite them. This google-maps-api element, though, is
+very different, even if it achieve the same nbehavior (it loads the Google Maps API
+only once)
+
+(*) Basically, google-maps-api uses Polymer.IronJsonpLibraryBehavior. The library is
+    vulcanized in ui/elements.html, and so far this has been identified as the origin
+    of the issues (in the end, the Google Maps API does not load)
+-->
+<dom-module id="nuxeo-google-maps-api">
+
+  <script>
+
+    // Global variable used to load make sure we load
+    // a singleton of the Google Maps API
+    window._nuxeoGoogleMapApiLoadingState = -1;
+
+    Polymer({
+      is: 'nuxeo-google-maps-api',
+      properties: {
+        apiKey: {
+          type: String,
+          observer: "_apiKeyChanged"
+        },
+
+        apiLoaded: {
+          type: Boolean,
+          value: false
+        }
+      },
+
+      _apiKeyChanged: function() {
+        this._loadApi();
+      },
+
+      _loadApi: function() {
+        if(typeof google !== "undefined" && google.maps) {
+          this.apiLoaded = true;
+          window._nuxeoGoogleMapApiLoadingState = 1;
+          //console.log("Google Maps API already loaded");
+          return;
+        }
+
+        if(window._nuxeoGoogleMapApiLoadingState !== -1) {
+          //console.log("Google Maps API already loaded or loading");
+          return;
+        }
+        window._nuxeoGoogleMapApiLoadingState = 0;
+
+        let script = document.createElement('script');
+        script.type = 'text/javascript';
+        script.src = "https://maps.googleapis.com/maps/api/js?key=" + this.apiKey;
+        script.onerror = (err) => {
+          console.error("Error loading Goodle Maps API: " + err);
+        }
+        script.onload = () => {
+          window._nuxeoGoogleMapApiLoadingState = 1;
+          this.apiLoaded = true;
+          this.fire("api-load");
+        };
+        let s = document.querySelector('script') || document.body;
+        s.parentNode.insertBefore(script, s);
+        this.script = script;
+
+      },
+
+      getApi: function() {
+        return google.maps;
+      }
+    });
+  </script>
+</dom-module>

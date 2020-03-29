@@ -1,0 +1,458 @@
+<!--
+`nuxeo-google-map`
+@group Nuxeo UI
+@element nuxeo-google-map
+-->
+<!--
+Displays a Google Map, optionaly with markers.
+
+====================================== REQUIREMENT =====================================
+The Maps JavaScript API must be activated on your Google API Key
+========================================================================================
+
+====================================== DISCLAIMER ======================================
+Because of elements duplication conflicts at runtime(*), we (unfortunately) cannot use
+the originals google-maps-api and google-map Polymenr elements from Google. This is
+why we had to "rewrite" them.
+So, a good part of this code comes from the google-map element and is (c) Google Inc.,
+under the Apache 2.0 License (https://github.com/GoogleWebComponents/google-map/blob/master/LICENSE).
+
+We limited it to displaying a Google Map possibly with markers. We do not handle other
+original elements, like google-map-marker, google-map-search, google-map-directions, etc.
+
+(*) Basically, google-maps-api uses Polymer.IronJsonpLibraryBehavior. The library is
+    vulcanized in ui/elements.html, and so far this has been identified as the origin
+    of the issues (in the end, the Google Maps API does not load)
+========================================================================================
+
+Example of use:
+	<style>
+	  nuxeo-google-map {
+		height: 500px; /* Settings the height is a requirement */
+	  }
+	</style
+	<nuxeo-google-map
+      id="gmap"
+      latitude="40.7499861000806"
+      longitude="-73.9884556111361"
+      zoom="10"
+      api-key="your-API-key"
+      markers="[[markers]]"
+      fit-to-markers>
+    </nuxeo-google-map>
+
+Default value for zoom is 12.
+
+markers is an array of marker infos:
+  [ {
+      latitude: 1234,                            // Required. Number or String. Latitude to center the map.
+      longitude: 5678,                           // Required. Number or String. Longitude to center the map.
+      title: "Subsidiary 1",                     // Optional. Tool tip.
+      infoWindowContent: "Content when Clicked", // Optional. Empty => no info on click.
+      icon: "url to an icon",                    // Optional. Empty => default Google icon.
+      iconSize: 48                               // optional. Size in pixels. Empty => Default Google size.
+    },
+    . . .,
+    {
+      latitude: 67868,
+      longitude: 8978989,
+      title: "Subsidiary N",
+      infoWindowContent: "the info winfow content for Subsidiary"
+      // No special icon here
+    }]
+
+    infoWindowContent is HTML displayed when the user clicks a marker. It can contain
+    a link to a document navigate to for example.
+
+--------------------
+Map Reset
+--------------------
+When needed, and typically when a caller displays info of a document and this document
+changes, a reset **must be done** by calling this.$.gmap.reset()
+(Please see reset() comments)
+
+-->
+
+<link rel="import" href="nuxeo-google-maps-api.html">
+<dom-module id="nuxeo-google-map">
+  <template>
+    <style>
+      :host {
+        position: relative;
+        display: block;
+        height: 100%;
+      }
+
+      #map {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+      }
+    </style>
+
+    <nuxeo-google-maps-api
+        id="api"
+        api-key="[[apiKey]]"
+        on-api-load="_mapApiLoadedCallback">
+    </nuxeo-google-maps-api>
+
+    <div id="map"></div>
+
+  </template>
+
+  <script>
+
+    Polymer({
+      is: 'nuxeo-google-map',
+      behaviors: [Nuxeo.LayoutBehavior],
+      properties: {
+
+     /* ==================== @public Properties ==================== */
+        /**
+         * A Maps API key. To obtain an API key, see https://developers.google.com/maps/documentation/javascript/tutorial#api_key.
+         */
+        apiKey: String,
+
+        /**
+         * A latitude to center the map on.
+         */
+      	latitude: Number,
+
+        /**
+         * A longitude to center the map on.
+         */
+      	longitude: Number,
+
+        /**
+         * A zoom level to set the map to.
+         */
+        zoom: {
+          type: Number,
+          value: 12,
+          observer: "_zoomChanged"
+        },
+
+        /**
+         * If set, the zoom level is set such that all markers are brought into view.
+         */
+        fitToMarkers: {
+          type: Boolean,
+          value: false,
+          observer: '_fitToMarkersChanged'
+        },
+
+        /**
+         * Array of objects, markers to display in the map.
+         * Properties:
+         *    Required:
+         *      latitude
+         *      longitude
+         *
+         *    Optional
+         *      title: Tooltip
+         *      infoWindowContent: HTML displayed when the user clicks a marker
+         *      iconUrl: Icon of the marker. An url.
+         *               For example: http://maps.google.com/mapfiles/ms/icons/yellow-dot.png
+         *      iconSize: Size in Pixels for the icon
+         */
+        markers: {
+          type: Array,
+          value:[],
+          observer: "_markersChanged"
+        },
+
+     /* ==================== @private Properties ==================== */
+     	  map: {
+          type: Object,
+          notify: true,
+          value: null
+        },
+
+        /* A hashmap of marker info objects
+         *
+         * The _getMarkerInfo() centralizes the building of such object.
+         * One marker info has the followng properties:
+         *    key: The unique key, used to store the markerInfo
+         *         String, concatenation latitude + longitude
+         *         Building the key is centralized in _getMarkerKey()
+         * 
+         *    position: An object storing latitude longitude as expected by
+         *              the GMap APi.
+         *              _getLatLongForGMaps() centralizes the building of such object
+         * 
+         *    marker: The GMap object used by Google
+         * 
+         *    infoWindow: The info window displayed when the user clicks the marker
+         */
+        markersInMap: {
+          type: Object,
+          value: {}
+        },
+
+        latestOpenInfoWindow: Object,
+
+        gmapsApiLoaded: {
+        	type: Boolean,
+        	value: false
+        }
+      },
+
+      observers: [
+        '_firstInit(apiKey, latitude, longitude)'
+      ],
+
+      /**
+       * Reset the map to a new center, remove all markers, optionaly set new ones.
+       * options is an object:
+       *   {
+       *     latitude     Required. New value for centering the map on.
+       *     longitude    Required. New value for centering the map on.
+       *     markers      Optional. New markers? Can be []
+       *                  Default: Remove all existing markers
+       *     zoom         Optional. New zoom level
+       *   }
+       */
+      reset: function(options) {
+
+        if(!options || !options.latitude || ! options.longitude) {
+          throw new Error ("nuxeo-google-map#reset requires at least new latitude/longitude");
+        }
+        if(this.map) {
+          this._removeMarkersInMap();
+
+          this.latitude = options.latitude;
+          this.longitude = options.longitude;
+
+          if(options.zoom) {
+            this.zoom = options.zoom;
+          }
+
+          if(options.markers) {
+            this.markers = options.markers;
+          } else {
+            this.markers = [];
+          }
+        }
+      },
+
+      ready: function() {
+      	if(this.$.api.apiLoaded) {
+      	  this.gmapsApiLoaded = true;
+      	}
+      },
+
+      _firstInit: function() {
+      	if(this._notNullOrUndefined(this.apiKey, this.latitude, this.longitude)) {
+      	  if(this.gmapsApiLoaded) {
+      	    this._initGMap();
+      	  }
+      	}
+      },
+
+      _mapApiLoadedCallback: function() {
+       	this.gmapsApiLoaded = true;
+        this._firstInit();
+      },
+
+      _markersChanged: function() {
+      	this._updateMarkersOnMap();
+      },
+
+      _zoomChanged(newValue) {
+      	if(newValue && this.map) {
+          this.map.setZoom(newValue);
+        } 
+      },
+
+      _fitToMarkersChanged: function() {
+      	this._fitToMarkers();
+      },
+
+      _removeMarkersInMap: function() {
+        let keys = Object.keys(this.markersInMap);
+        let max = keys.length;
+        for(let i = 0; i < max; i++) {
+          let key = keys[i];
+          let markerInfo = this.markersInMap[key];
+          if(markerInfo.infoWindow && markerInfo.infoWindow.getMap() !== null) {
+            markerInfo.infoWindow.close();
+          }
+          markerInfo.marker.setMap(null);
+          markerInfo.marker = null;
+        }
+        this.latestOpenInfoWindow = null;
+        this.markersInMap = {};
+      },
+
+      _updateMarkersOnMap: function() {
+
+      	// Cleanup current markers
+      	// A better algorithm would add missing markers, remove the ones
+      	// that are not in the new list
+      	this._removeMarkersInMap();
+        if(!this.markers || !this.markers.length) {
+        	return;
+        }
+
+        for(var m of this.markers) {
+          this._addToMarkersInMap(m);
+        }
+
+        if(this.fitToMarkers) {
+          this._fitToMarkers();
+        }
+
+      },
+
+      _initGMap: function(forceReinit) {
+        if (this.map && !forceReinit) {
+          return; // already initialized
+        }
+
+        let options = {
+        	zoom: this.zoom,
+        	center: this._getLatLongForGMaps(this.latitude, this.longitude)
+        };
+        this.map = new google.maps.Map(this.$.map, options);
+
+      },
+
+      _fitToMarkers: function() {
+        if (this.map && this.fitToMarkers && this.markersInMap) {
+          let allMarkers = [];
+          let keys = Object.keys(this.markersInMap);
+          let max = keys.length;
+  	      for(let i = 0; i < max; i++) {
+  	        let markerInfo = this.markersInMap[ keys[i] ];
+  	        allMarkers.push(markerInfo);
+  	      }
+
+          let latLngBounds = new google.maps.LatLngBounds();
+          for(var m of allMarkers) {
+            let latLong = new google.maps.LatLng(m.position.lat, m.position.lng);
+            latLngBounds.extend(latLong);
+          }
+
+          // For one marker, don't alter zoom, just center it.
+          if (this.markers.length > 1) {
+            this.map.fitBounds(latLngBounds);
+          }
+
+          this.map.setCenter(latLngBounds.getCenter());
+        }
+      },
+
+      _addToMarkersInMap: function(marker) {
+
+        if(!this.markersInMap) {
+          this.markersInMap = {};
+        }
+        let markerInfo = this._getMarkerInfo(marker);
+        this.markersInMap[markerInfo.key] = markerInfo;
+
+        return markerInfo;
+      },
+
+      // marker is an object as described in the properties
+      _getMarkerInfo: function(marker) {
+
+        let markerInfo = {};
+
+        markerInfo.key = this._getMarkerKey(marker);
+
+        let position = this._getLatLongForGMaps(marker.latitude, marker.longitude);
+        markerInfo.position = position;
+
+        markerInfo.marker = new google.maps.Marker({
+  	                              position: position,
+  	                              map: this.map
+  	                            });
+        if(marker.title) {
+          markerInfo.marker.setTitle(marker.title);
+        }
+
+        if(marker.iconUrl) {
+        	let iconOptions = {url: marker.iconUrl};
+        	if(marker.iconSize) {
+        	  iconOptions.scaledSize = {
+        	    width: marker.iconSize,
+        	    height: marker.iconSize,
+        	  }
+        	}
+        	markerInfo.marker.setIcon(iconOptions);
+        }
+
+        if(marker.infoWindowContent) {
+  	      markerInfo.infoWindow = new google.maps.InfoWindow({
+  	                                    content: marker.infoWindowContent
+  	                                  });
+  	      markerInfo.marker.addListener('click', function(evt) {
+  	      	if(this.latestOpenInfoWindow) {
+  	      		this.latestOpenInfoWindow.close();
+  	      	}
+            let key = this._getMarkerKey(null, evt.latLng.lat(), evt.latLng.lng());
+            let markerInfo = this.markersInMap[key];
+            markerInfo.infoWindow.open(this.map, markerInfo.marker);
+            this.latestOpenInfoWindow = markerInfo.infoWindow;
+          }.bind(this));
+    	  }
+
+        return markerInfo;
+      },
+
+      /* Build a position object with names of properties as expected by Google Map API
+         (lat and lng, as numbers, not strings).
+       */
+      _getLatLongForGMaps(latitude, longitude) {
+
+        latitude = Number(latitude);
+        if (isNaN(latitude)) {
+          throw new TypeError('latitude must be a number');
+        }
+        longitude = Number(longitude);
+        if (isNaN(longitude)) {
+          throw new TypeError('longitude must be a number');
+        }
+
+        return {
+          lat: latitude,
+          lng: longitude
+        };
+      },
+
+      /* Centralizing the way we calculate the key for the markersInMap HashMap.
+       *
+       * If first parameter is passed, it is use in priority.
+       * We must convert to Number so we have the same values as what will be
+       * tested in callbacks (like the infoWindow onClick listener).
+       * Example: The key for latitude of "41.00" and longitude of "-75.00"
+       * will "-7541"
+       */
+      _getMarkerKey: function(marker, latitude, longitude) {
+        let location;
+      	if(marker) {
+  	      location = this._getLatLongForGMaps(marker.latitude, marker.longitude);
+  	    } else {
+          location = this._getLatLongForGMaps(latitude, longitude);
+        }
+
+  	    return "" + location.lat + location.lng;
+      },
+
+      // Return true if all parameters are not null and not undefined
+      _notNullOrUndefined: function(...params) {
+
+      	for(p of params) {
+      	  if (typeof p === "undefined" || p === null) {
+      	    return false;
+      	  }
+      	}
+
+      	return true;
+      }
+
+    });
+  </script>
+</dom-module>
