@@ -9,7 +9,9 @@ Allows for displaying a Google Map, with 0-n markers, handling a click on marker
 2. In a custom element using them:
   * Import `nuxeo-google-map.html`, according to its path in your configuration
   * For example, `<link rel="import" href="nuxeo-google-map/nuxeo-google-map.html">`
-3. It is required to give a height to the element, in the `<style>` part. Then, use the element and set its different values. For example, with an existing `geloc` schema:
+3. It is required to give a height to the element, in the `<style>` part. Then, use the element and set its different values.
+
+For example, with an existing `geoloc` schema
 
 ```
 <link rel="import" href="nuxeo-google-map/nuxeo-google-map.html">
@@ -33,7 +35,7 @@ Allows for displaying a Google Map, with 0-n markers, handling a click on marker
 . . .
 ```
 
-Please, see the explanations in nuxeo-google-map.html for details about the markers.
+**Please, see the explanations and details in nuxeo-google-map.html for details about the markers**
 
 
 # Support
