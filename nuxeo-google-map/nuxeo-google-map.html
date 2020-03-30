@@ -26,12 +26,12 @@ original elements, like google-map-marker, google-map-search, google-map-directi
 ========================================================================================
 
 Example of use:
-	<style>
-	  nuxeo-google-map {
-		height: 500px; /* Settings the height is a requirement */
-	  }
-	</style
-	<nuxeo-google-map
+  <style>
+    nuxeo-google-map {
+    height: 500px; /* Settings the height is a requirement */
+    }
+  </style
+  <nuxeo-google-map
       id="gmap"
       latitude="40.7499861000806"
       longitude="-73.9884556111361"
@@ -70,7 +70,6 @@ Map Reset
 When needed, and typically when a caller displays info of a document and this document
 changes, a reset **must be done** by calling this.$.gmap.reset()
 (Please see reset() comments)
-
 -->
 
 <link rel="import" href="nuxeo-google-maps-api.html">
@@ -118,12 +117,12 @@ changes, a reset **must be done** by calling this.$.gmap.reset()
         /**
          * A latitude to center the map on.
          */
-      	latitude: Number,
+        latitude: Number,
 
         /**
          * A longitude to center the map on.
          */
-      	longitude: Number,
+        longitude: Number,
 
         /**
          * A zoom level to set the map to.
@@ -164,7 +163,7 @@ changes, a reset **must be done** by calling this.$.gmap.reset()
         },
 
      /* ==================== @private Properties ==================== */
-     	  map: {
+        map: {
           type: Object,
           notify: true,
           value: null
@@ -194,8 +193,8 @@ changes, a reset **must be done** by calling this.$.gmap.reset()
         latestOpenInfoWindow: Object,
 
         gmapsApiLoaded: {
-        	type: Boolean,
-        	value: false
+          type: Boolean,
+          value: false
         }
       },
 
@@ -212,6 +211,7 @@ changes, a reset **must be done** by calling this.$.gmap.reset()
        *     markers      Optional. New markers? Can be []
        *                  Default: Remove all existing markers
        *     zoom         Optional. New zoom level
+       *     apiKey       Optional. The ApiKey. Usefull when the parent has cleared nuxeo-google-map for whatever reason
        *   }
        */
       reset: function(options) {
@@ -219,55 +219,73 @@ changes, a reset **must be done** by calling this.$.gmap.reset()
         if(!options || !options.latitude || ! options.longitude) {
           throw new Error ("nuxeo-google-map#reset requires at least new latitude/longitude");
         }
-        if(this.map) {
-          this._removeMarkersInMap();
 
-          this.latitude = options.latitude;
-          this.longitude = options.longitude;
+        if(options.apiKey) {
+          this.apiKey = options.apiKey;
+        }
 
-          if(options.zoom) {
-            this.zoom = options.zoom;
+        this._removeMarkersInMap();
+
+        this.latitude = options.latitude;
+        this.longitude = options.longitude;
+
+        if(options.zoom) {
+          this.zoom = options.zoom;
+        }
+
+        if(options.markers) {
+          this.markers = options.markers;
+        } else {
+          this.markers = [];
+        }
+
+        // For whatever reason, the parent has somehow clear nuxeo-google-map
+        // This happens in some specific navigaiton context.
+        if(!this.map) {
+          this.latestOpenInfoWindow = null;
+          if(this.$.api.apiLoaded && !this.gmapsApiLoaded) {
+            this.gmapsApiLoaded = true;
           }
-
-          if(options.markers) {
-            this.markers = options.markers;
-          } else {
-            this.markers = [];
-          }
+          this._firstInit();
         }
       },
 
       ready: function() {
-      	if(this.$.api.apiLoaded) {
-      	  this.gmapsApiLoaded = true;
-      	}
+        if(this.$.api.apiLoaded) {
+          this.gmapsApiLoaded = true;
+        }
       },
 
       _firstInit: function() {
-      	if(this._notNullOrUndefined(this.apiKey, this.latitude, this.longitude)) {
-      	  if(this.gmapsApiLoaded) {
-      	    this._initGMap();
-      	  }
-      	}
+        if(this._notNullOrUndefined(this.apiKey, this.latitude, this.longitude)) {
+          if(this.gmapsApiLoaded) {
+            console.log("_firstInit");
+            this._initGMap();
+          }
+        }
       },
 
       _mapApiLoadedCallback: function() {
-       	this.gmapsApiLoaded = true;
+        this.gmapsApiLoaded = true;
         this._firstInit();
       },
 
       _markersChanged: function() {
-      	this._updateMarkersOnMap();
+        if(!this.map) {
+          console.log("_markersChanged => this.map null ??? => _firstInit()")
+          this._firstInit();
+        }
+        this._updateMarkersOnMap();
       },
 
       _zoomChanged(newValue) {
-      	if(newValue && this.map) {
+        if(newValue && this.map) {
           this.map.setZoom(newValue);
         } 
       },
 
       _fitToMarkersChanged: function() {
-      	this._fitToMarkers();
+        this._fitToMarkers();
       },
 
       _removeMarkersInMap: function() {
@@ -288,12 +306,12 @@ changes, a reset **must be done** by calling this.$.gmap.reset()
 
       _updateMarkersOnMap: function() {
 
-      	// Cleanup current markers
-      	// A better algorithm would add missing markers, remove the ones
-      	// that are not in the new list
-      	this._removeMarkersInMap();
+        // Cleanup current markers
+        // A better algorithm would add missing markers, remove the ones
+        // that are not in the new list
+        this._removeMarkersInMap();
         if(!this.markers || !this.markers.length) {
-        	return;
+          return;
         }
 
         for(var m of this.markers) {
@@ -307,13 +325,18 @@ changes, a reset **must be done** by calling this.$.gmap.reset()
       },
 
       _initGMap: function(forceReinit) {
+        console.log("_initGMap...");
         if (this.map && !forceReinit) {
+           console.log("_initGMap...not running");
           return; // already initialized
         }
 
+
+           console.log("_initGMap...OK, creating the map");
+
         let options = {
-        	zoom: this.zoom,
-        	center: this._getLatLongForGMaps(this.latitude, this.longitude)
+          zoom: this.zoom,
+          center: this._getLatLongForGMaps(this.latitude, this.longitude)
         };
         this.map = new google.maps.Map(this.$.map, options);
 
@@ -324,10 +347,10 @@ changes, a reset **must be done** by calling this.$.gmap.reset()
           let allMarkers = [];
           let keys = Object.keys(this.markersInMap);
           let max = keys.length;
-  	      for(let i = 0; i < max; i++) {
-  	        let markerInfo = this.markersInMap[ keys[i] ];
-  	        allMarkers.push(markerInfo);
-  	      }
+          for(let i = 0; i < max; i++) {
+            let markerInfo = this.markersInMap[ keys[i] ];
+            allMarkers.push(markerInfo);
+          }
 
           let latLngBounds = new google.maps.LatLngBounds();
           for(var m of allMarkers) {
@@ -366,38 +389,38 @@ changes, a reset **must be done** by calling this.$.gmap.reset()
         markerInfo.position = position;
 
         markerInfo.marker = new google.maps.Marker({
-  	                              position: position,
-  	                              map: this.map
-  	                            });
+                                  position: position,
+                                  map: this.map
+                                });
         if(marker.title) {
           markerInfo.marker.setTitle(marker.title);
         }
 
         if(marker.iconUrl) {
-        	let iconOptions = {url: marker.iconUrl};
-        	if(marker.iconSize) {
-        	  iconOptions.scaledSize = {
-        	    width: marker.iconSize,
-        	    height: marker.iconSize,
-        	  }
-        	}
-        	markerInfo.marker.setIcon(iconOptions);
+          let iconOptions = {url: marker.iconUrl};
+          if(marker.iconSize) {
+            iconOptions.scaledSize = {
+              width: marker.iconSize,
+              height: marker.iconSize,
+            }
+          }
+          markerInfo.marker.setIcon(iconOptions);
         }
 
         if(marker.infoWindowContent) {
-  	      markerInfo.infoWindow = new google.maps.InfoWindow({
-  	                                    content: marker.infoWindowContent
-  	                                  });
-  	      markerInfo.marker.addListener('click', function(evt) {
-  	      	if(this.latestOpenInfoWindow) {
-  	      		this.latestOpenInfoWindow.close();
-  	      	}
+          markerInfo.infoWindow = new google.maps.InfoWindow({
+                                        content: marker.infoWindowContent
+                                      });
+          markerInfo.marker.addListener('click', function(evt) {
+            if(this.latestOpenInfoWindow) {
+              this.latestOpenInfoWindow.close();
+            }
             let key = this._getMarkerKey(null, evt.latLng.lat(), evt.latLng.lng());
             let markerInfo = this.markersInMap[key];
             markerInfo.infoWindow.open(this.map, markerInfo.marker);
             this.latestOpenInfoWindow = markerInfo.infoWindow;
           }.bind(this));
-    	  }
+        }
 
         return markerInfo;
       },
@@ -432,25 +455,25 @@ changes, a reset **must be done** by calling this.$.gmap.reset()
        */
       _getMarkerKey: function(marker, latitude, longitude) {
         let location;
-      	if(marker) {
-  	      location = this._getLatLongForGMaps(marker.latitude, marker.longitude);
-  	    } else {
+        if(marker) {
+          location = this._getLatLongForGMaps(marker.latitude, marker.longitude);
+        } else {
           location = this._getLatLongForGMaps(latitude, longitude);
         }
 
-  	    return "" + location.lat + location.lng;
+        return "" + location.lat + location.lng;
       },
 
       // Return true if all parameters are not null and not undefined
       _notNullOrUndefined: function(...params) {
 
-      	for(p of params) {
-      	  if (typeof p === "undefined" || p === null) {
-      	    return false;
-      	  }
-      	}
+        for(p of params) {
+          if (typeof p === "undefined" || p === null) {
+            return false;
+          }
+        }
 
-      	return true;
+        return true;
       }
 
     });
