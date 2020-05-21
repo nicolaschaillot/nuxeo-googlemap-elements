@@ -221,7 +221,9 @@ changes, a reset **must be done** by calling this.$.gmap.reset()
         }
 
         if(options.apiKey) {
-          this.apiKey = options.apiKey;
+          if(!this.apiKey || this.apiKey !== options.apiKey) {
+            this.apiKey = options.apiKey;
+          }
         }
 
         this._removeMarkersInMap();
@@ -259,7 +261,6 @@ changes, a reset **must be done** by calling this.$.gmap.reset()
       _firstInit: function() {
         if(this._notNullOrUndefined(this.apiKey, this.latitude, this.longitude)) {
           if(this.gmapsApiLoaded) {
-            console.log("_firstInit");
             this._initGMap();
           }
         }
@@ -272,7 +273,6 @@ changes, a reset **must be done** by calling this.$.gmap.reset()
 
       _markersChanged: function() {
         if(!this.map) {
-          console.log("_markersChanged => this.map null ??? => _firstInit()")
           this._firstInit();
         }
         this._updateMarkersOnMap();
@@ -325,14 +325,9 @@ changes, a reset **must be done** by calling this.$.gmap.reset()
       },
 
       _initGMap: function(forceReinit) {
-        console.log("_initGMap...");
         if (this.map && !forceReinit) {
-           console.log("_initGMap...not running");
           return; // already initialized
         }
-
-
-           console.log("_initGMap...OK, creating the map");
 
         let options = {
           zoom: this.zoom,

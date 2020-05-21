@@ -182,7 +182,7 @@ In this example, a parent company displays a Google Map with markers on each of 
         }
 
         markers.push(this._buildDocumentMarker(this.document));
-        // Bigger marker, yello.
+        // Bigger marker, yellow<.
         markers[0].iconUrl = "http://maps.google.com/mapfiles/ms/icons/yellow-dot.png";
         markers[0].iconSize = 48;
         // Loop on the others
@@ -233,7 +233,7 @@ In this example, a parent company displays a Google Map with markers on each of 
       },
 
       _getApiKeyResponse: function(e) {
-        if(typeof this.apiKey !== "string" || this.apiKey !== "") {
+        if(typeof this.apiKey !== "string" || this.apiKey === "") {
           this.apiKey = e.detail.response.value;
         }
       },
